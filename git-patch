@@ -1,0 +1,147 @@
+#!/bin/bash
+set -euo pipefail
+
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/common
+
+OUTPUT_DIR_ASKED=0
+PATCHES_DIR=""
+for i in $*; do
+	if [[ r"$PATCHES_DIR" == r""  && $OUTPUT_DIR_ASKED == 1 ]]; then
+		PATCHES_DIR=$i
+	fi
+	if [ "$i" == "-o" ]; then
+	    OUTPUT_DIR_ASKED=1
+	fi
+done
+
+OUTPUT_DIR=""
+BRANCH=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+if [ $OUTPUT_DIR_ASKED == 0 ]; then
+	PATCHES_DIR="/images/leonro/src/patches/$( date +%Y/%m/%d/$BRANCH-%H-%M )"
+	OUTPUT_DIR="-o $PATCHES_DIR"
+fi
+
+get_project $PWD
+PROJECT=$REPLY
+get_target $PROJECT
+TARGET=$REPLY
+
+git format-patch -q -M -C --no-signoff --subject-prefix "PATCH $TARGET" $@ $OUTPUT_DIR
+
+GET_CC_LIST="./scripts/get_maintainer.pl --nogit --nogit-fallback --m --nor --l --remove-duplicates --noroles --norolestats --nomultiline"
+
+function process_patches() {
+	# Replace rdma-next to be mlx5-next
+	local _PDIR=$1
+	local _PROJECT=$2
+	local _TARGET=$3
+
+	if [ "$_PROJECT" != "kernel" ]; then
+		return
+	fi
+
+	local _FOUND=0
+	local _GLOBAL_LIST=""
+
+	for _file in $_PDIR/*.patch; do
+		[ -e "$_file" ] || continue
+
+		local _LIST_PATCHES=""
+		local _COVER_LETTER=0
+
+		if [ "$_file" == "$_PDIR/0000-cover-letter.patch" ]; then
+			_COVER_LETTER=1
+		fi
+
+		if [ $_COVER_LETTER -eq 1 ]; then
+			_LIST_PATCHES=$(ls $_PDIR/*.patch)
+			_LIST_PATCHES=${_LIST_PATCHES//$_file/}
+		else
+			_LIST_PATCHES=$_file
+		fi
+
+		local _TO_LIST=""
+		local _CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
+		if [ $_COVER_LETTER -eq 0 ]; then
+			_CC_LIST+=$(grep "\-by\:" $_file | awk -F": " '{print ", "$2}' | grep -v syzbot | tr -d '\n')
+		fi
+
+		# get_maintainer.pl returns open-source email, but we use company mail
+		_CC_LIST=${_CC_LIST/jgg@ziepe.ca/jgg@mellanox.com}
+
+		# Delete duplicates
+		_CC_LIST=$(echo $_CC_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
+			sort -u | paste -sd "," - | sed -e 's/,/, /g')
+
+		# I don't need to be in CC
+		_CC_LIST=${_CC_LIST/Leon Romanovsky <leon@kernel.org>, /}
+		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leon@kernel.org>/}
+		_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@mellanox.com>, /}
+		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@mellanox.com>/}
+
+
+		if [[ $_TARGET == "net-next" || $_TARGET == "net" ]]; then
+			_TO_LIST="David S. Miller <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>"
+			_CC_LIST=${_CC_LIST/\"David S. Miller\" <davem@davemloft.net>, /}
+			_CC_LIST=${_CC_LIST/, \"David S. Miller\" <davem@davemloft.net>/}
+			_CC_LIST=${_CC_LIST/Jakub Kicinski <kuba@kernel.org>, /}
+			_CC_LIST=${_CC_LIST/, Jakub Kicinski <kuba@kernel.org>/}
+		fi
+		if [[ $_TARGET == "rdma-next" || $_TARGET == "rdma-rc" ]]; then
+			_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@mellanox.com>"
+			_CC_LIST=${_CC_LIST/Doug Ledford <dledford@redhat.com>, /}
+			_CC_LIST=${_CC_LIST/, Doug Ledford <dledford@redhat.com>>/}
+			_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@mellanox.com>, /}
+			_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@mellanox.com>/}
+		fi
+
+		if [ r"$_GLOBAL_LIST" != r"" ]; then
+			_GLOBAL_LIST+=", "
+		fi
+		_GLOBAL_LIST+=$_CC_LIST
+
+		sed -i -e "/^Date: .*/i To: $_TO_LIST" $_file
+
+		if [ $_COVER_LETTER -eq 0 ]; then
+			sed -i -e "/^Date: .*/i Cc: $_CC_LIST" $_file
+		fi
+		sed -i -e 's/linux-kernel@vger.kernel.org, //g' $_file
+
+		[ $_COVER_LETTER -eq 0 ] || continue
+
+		local _IS_RDMA_NEXT_TARGET=$(grep -c "PATCH rdma-next" $_file)
+		if [ $_IS_RDMA_NEXT_TARGET -eq 1 ]; then
+			local _IS_MLX5_NEXT_TARGET=$($GET_CC_LIST $_file | grep saeedm -c)
+			if [ $_IS_MLX5_NEXT_TARGET -eq 1 ]; then
+				_FOUND=1
+				echo "REPLACED: $_file"
+				sed -i -e 's/PATCH rdma-next/PATCH mlx5-next/g' $_file
+				sed -i -e 's/"David S. Miller" <davem@davemloft.net>, //g' $_file
+			fi
+		fi
+
+		set +e
+		# Warnings returns error too
+		./scripts/checkpatch.pl --color=always --summary-file $_file |\
+		       	sed '/NOTE: For some of the reported/,+10 d' |\
+		       	sed '/has no obvious style problems and is ready for submission/,+1 d' |\
+		       	head -n -1
+		set -e
+	done
+
+	if [ -f "$_PDIR/0000-cover-letter.patch" ]; then
+		# Delete duplicates
+		_GLOBAL_LIST=$(echo $_GLOBAL_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
+			sort -u | paste -sd "," - | sed -e 's/,/, /g')
+
+		sed -i -e "/^Date: .*/i Cc: $_GLOBAL_LIST" $_PDIR/0000-cover-letter.patch
+
+		if [ $_FOUND -eq 1 ]; then
+			sed -i -e 's/linux-kernel@vger.kernel.org, //g' $_PDIR/0000-cover-letter.patch
+			sed -i -e 's/"David S. Miller" <davem@davemloft.net>, //g' $_PDIR/0000-cover-letter.patch
+		fi
+	fi
+}
+
+process_patches $PATCHES_DIR $PROJECT $TARGET
