@@ -80,6 +80,11 @@ function process_patches() {
 		_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@mellanox.com>, /}
 		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@mellanox.com>/}
 
+		# Delete dead emails
+		_CC_LIST=${_CC_LIST/Matan Barak <matanb@mellanox.com>, /}
+		_CC_LIST=${_CC_LIST/, Matan Barak <matanb@mellanox.com>/}
+		_CC_LIST=${_CC_LIST/Noa Osherovich <noaos@mellanox.com>, /}
+		_CC_LIST=${_CC_LIST/, Noa Osherovich <noaos@mellanox.com>/}
 
 		if [[ $_TARGET == "net-next" || $_TARGET == "net" ]]; then
 			_TO_LIST="David S. Miller <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>"
