@@ -145,3 +145,5 @@ function process_patches() {
 }
 
 process_patches $PATCHES_DIR $PROJECT $TARGET
+echo "---------------------------------------------------------------------"
+echo "git send-upstream $PATCHES_DIR/*"
