@@ -1,0 +1,21 @@
+#!/bin/bash
+set -euo pipefail
+
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/common
+
+if [ "$#" -gt 0 ]; then
+	SHA=$1
+else
+	echo "Please provide SHA-1 to cherry-pick"
+	exit
+fi
+
+PDIR=$(mktemp -d)
+git format-patch -q -1 $SHA -o $PDIR
+sed -i "/^Issue:[ 0-9]*/Id" $PDIR/*
+sed -i "/^Change-id:[ 0-9]*/Id" $PDIR/*
+
+git am -q -s --reject $PDIR/*
+rm -rf $PDIR
+git checkpatch

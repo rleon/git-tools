@@ -62,3 +62,33 @@ function get_target() {
 
 	REPLY=$_TARGET
 }
+
+function checkpatch() {
+        local _PDIR=$1
+        local _PROJECT=$2
+	local _GIT_ROOT=$3
+
+        sed -i "/^Issue:[ 0-9]*/Id" $_PDIR/*.patch
+        sed -i "/^Change-id:[ 0-9]*/Id" $_PDIR/*.patch
+
+        if [ "$_PROJECT" != "kernel" ]; then
+                local _IN_TREE="--no-tree --ignore PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS"
+		_GIT_ROOT="$HOME/src/kernel"
+        else
+                local _IN_TREE=""
+        fi
+
+	cd $_PDIR
+        for _file in *.patch; do
+                [ -e "$_file" ] || continue
+                [ "$_file" != "0000-cover-letter.patch" ] || continue
+                #perl $_GIT_ROOT/scripts/checkpatch.pl $_IN_TREE -q $_filea
+                set +e
+                # Warnings returns error too
+                $_GIT_ROOT/scripts/checkpatch.pl --root=$_GIT_ROOT --color=always --summary-file $_file |\
+                        sed '/NOTE: For some of the reported/,+10 d' |\
+                        sed '/has no obvious style problems and is ready for submission/,+1 d' |\
+                        head -n -1
+                set -e
+        done
+}

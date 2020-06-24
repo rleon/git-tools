@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/common
+
+if [ "$#" -gt 0 ]; then
+	SHA=$1
+else
+	SHA=$(git rev-parse HEAD)
+fi
+
+NUMB=$(git rev-parse $SHA | wc -l)
+if [ $NUMB == 1 ]; then
+	NUMB_ARG="-1"
+else
+	NUMB_ARG=""
+fi
+
+PDIR=$(mktemp -d)
+git format-patch -q -M -C $NUMB_ARG -o $PDIR/ $SHA
+
+get_project $PWD
+PROJECT=$REPLY
+GIT_ROOT=$(git root)
+checkpatch $PDIR $PROJECT $GIT_ROOT
+rm -rf $PDIR

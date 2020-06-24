@@ -18,7 +18,7 @@ done
 OUTPUT_DIR=""
 BRANCH=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 if [ $OUTPUT_DIR_ASKED == 0 ]; then
-	PATCHES_DIR="/images/leonro/src/patches/$( date +%Y/%m/%d/$BRANCH-%H-%M )"
+	PATCHES_DIR="$HOME/src/patches/$( date +%Y/%m/%d/$BRANCH-%H-%M )"
 	OUTPUT_DIR="-o $PATCHES_DIR"
 fi
 
@@ -43,6 +43,7 @@ function process_patches() {
 
 	local _FOUND=0
 	local _GLOBAL_LIST=""
+	local _COVER_LETTER_NAME=""
 
 	for _file in $_PDIR/*.patch; do
 		[ -e "$_file" ] || continue
@@ -50,8 +51,9 @@ function process_patches() {
 		local _LIST_PATCHES=""
 		local _COVER_LETTER=0
 
-		if [ "$_file" == "$_PDIR/0000-cover-letter.patch" ]; then
+		if [[ "$_file" == "$_PDIR/"*"0000-cover-letter.patch" ]]; then
 			_COVER_LETTER=1
+			_COVER_LETTER_NAME=$(ls $_PDIR/*0000*)
 		fi
 
 		if [ $_COVER_LETTER -eq 1 ]; then
@@ -135,16 +137,16 @@ function process_patches() {
 		set -e
 	done
 
-	if [ -f "$_PDIR/0000-cover-letter.patch" ]; then
+	if [[ r"$_COVER_LETTER_NAME" != r"" ]]; then
 		# Delete duplicates
 		_GLOBAL_LIST=$(echo $_GLOBAL_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
 			sort -u | paste -sd "," - | sed -e 's/,/, /g')
 
-		sed -i -e "/^Date: .*/i Cc: $_GLOBAL_LIST" $_PDIR/0000-cover-letter.patch
+		sed -i -e "/^Date: .*/i Cc: $_GLOBAL_LIST" $_COVER_LETTER_NAME
 
 		if [ $_FOUND -eq 1 ]; then
-			sed -i -e 's/linux-kernel@vger.kernel.org, //g' $_PDIR/0000-cover-letter.patch
-			sed -i -e 's/"David S. Miller" <davem@davemloft.net>, //g' $_PDIR/0000-cover-letter.patch
+			sed -i -e 's/linux-kernel@vger.kernel.org, //g' $_COVER_LETTER_NAME
+			sed -i -e 's/"David S. Miller" <davem@davemloft.net>, //g' $_COVER_LETTER_NAME
 		fi
 	fi
 }

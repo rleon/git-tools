@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/common
+
+if [ "$#" -gt 0 ]; then
+	SHA=$1
+else
+	SHA=$(git rev-parse HEAD)
+fi
+
+PREV=$SHA^1
+
+set -e
+PRTMP=$(mktemp -d)
+git format-patch -M -C --no-cover-letter -s -o $PRTMP/ $PREV
+
+sed -i "/^Issue:[ 0-9]*/Id" $PRTMP/0001-*.patch
+sed -i "/^Change-id:[ 0-9]*/Id" $PRTMP/0001-*.patch
+
+git reset --hard $PREV
+git am $PRTMP/*
+
+rm -rf $PRTMP
