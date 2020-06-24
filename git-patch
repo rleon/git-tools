@@ -37,9 +37,9 @@ function process_patches() {
 	local _PROJECT=$2
 	local _TARGET=$3
 
-	if [ "$_PROJECT" != "kernel" ]; then
-		return
-	fi
+	#if [ "$_PROJECT" != "kernel" ]; then
+	#	return
+	#fi
 
 	local _FOUND=0
 	local _GLOBAL_LIST=""
@@ -64,7 +64,15 @@ function process_patches() {
 		fi
 
 		local _TO_LIST=""
-		local _CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
+		local _CC_LIST=""
+
+		if [ "$_PROJECT" == "kernel" ]; then
+			_CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
+		fi
+		if [ "$_PROJECT" == "iproute" ]; then
+			_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@mellanox.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
+		fi
+
 		if [ $_COVER_LETTER -eq 0 ]; then
 			_CC_LIST+=$(grep "\-by\:" $_file | awk -F": " '{print ", "$2}' | grep -v syzbot | tr -d '\n')
 		fi
@@ -103,6 +111,10 @@ function process_patches() {
 			_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@mellanox.com>/}
 		fi
 
+		if [[ $_TARGET == "iproute2-next" ]]; then
+			_TO_LIST="David Ahern <dsahern@gmail.com>"
+		fi
+
 		if [ r"$_GLOBAL_LIST" != r"" ]; then
 			_GLOBAL_LIST+=", "
 		fi
@@ -128,13 +140,15 @@ function process_patches() {
 			fi
 		fi
 
-		set +e
-		# Warnings returns error too
-		./scripts/checkpatch.pl --color=always --summary-file $_file |\
-		       	sed '/NOTE: For some of the reported/,+10 d' |\
-		       	sed '/has no obvious style problems and is ready for submission/,+1 d' |\
-		       	head -n -1
-		set -e
+		if [ "$_PROJECT" == "kernel" ]; then
+			set +e
+			# Warnings returns error too
+			./scripts/checkpatch.pl --color=always --summary-file $_file |\
+		       		sed '/NOTE: For some of the reported/,+10 d' |\
+			       	sed '/has no obvious style problems and is ready for submission/,+1 d' |\
+			       	head -n -1
+			set -e
+		fi
 	done
 
 	if [[ r"$_COVER_LETTER_NAME" != r"" ]]; then
