@@ -1,0 +1,25 @@
+#!/bin/bash
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/common
+
+PATCH=$(mktemp)
+cat - > $PATCH
+sed -i -e '/^Issue:[ 0-9]*/Id' -e '/^Change-id:[ 0-9]*/Id' $PATCH
+
+COUNT=$(grep PATCH $PATCH | grep Subject | grep -c rdma-core)
+echo $COUNT
+if [ $COUNT -eq 1 ]; then
+	PRJ="rdma-core"
+else
+	COUNT=$(grep PATCH $PATCH | grep Subject | grep -c iproute)
+	if [ $COUNT -eq 1 ]; then
+		PRJ="iproute2"
+	else
+		PRJ="kernel"
+	fi
+fi
+
+echo "Applying to $HOME/src/$PRJ"
+cd $HOME/src/$PRJ
+git am -s --reject $PATCH
+rm -f $PATCH
