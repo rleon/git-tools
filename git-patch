@@ -70,7 +70,7 @@ function process_patches() {
 			_CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
 		fi
 		if [ "$_PROJECT" == "iproute" ]; then
-			_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@mellanox.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
+			_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
 		fi
 
 		if [ $_COVER_LETTER -eq 0 ]; then
@@ -78,7 +78,7 @@ function process_patches() {
 		fi
 
 		# get_maintainer.pl returns open-source email, but we use company mail
-		_CC_LIST=${_CC_LIST/jgg@ziepe.ca/jgg@mellanox.com}
+		_CC_LIST=${_CC_LIST/jgg@ziepe.ca/jgg@nvidia.com}
 
 		# Delete duplicates
 		_CC_LIST=$(echo $_CC_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
@@ -87,14 +87,14 @@ function process_patches() {
 		# I don't need to be in CC
 		_CC_LIST=${_CC_LIST/Leon Romanovsky <leon@kernel.org>, /}
 		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leon@kernel.org>/}
-		_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@mellanox.com>, /}
-		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@mellanox.com>/}
+		_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@nvidia.com>, /}
+		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@nvidia.com>/}
 
 		# Delete dead emails
-		_CC_LIST=${_CC_LIST/Matan Barak <matanb@mellanox.com>, /}
-		_CC_LIST=${_CC_LIST/, Matan Barak <matanb@mellanox.com>/}
-		_CC_LIST=${_CC_LIST/Noa Osherovich <noaos@mellanox.com>, /}
-		_CC_LIST=${_CC_LIST/, Noa Osherovich <noaos@mellanox.com>/}
+		_CC_LIST=${_CC_LIST/Matan Barak <matanb@nvidia.com>, /}
+		_CC_LIST=${_CC_LIST/, Matan Barak <matanb@nvidia.com>/}
+		_CC_LIST=${_CC_LIST/Noa Osherovich <noaos@nvidia.com>, /}
+		_CC_LIST=${_CC_LIST/, Noa Osherovich <noaos@nvidia.com>/}
 
 		if [[ $_TARGET == "net-next" || $_TARGET == "net" ]]; then
 			_TO_LIST="David S. Miller <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>"
@@ -104,11 +104,11 @@ function process_patches() {
 			_CC_LIST=${_CC_LIST/, Jakub Kicinski <kuba@kernel.org>/}
 		fi
 		if [[ $_TARGET == "rdma-next" || $_TARGET == "rdma-rc" ]]; then
-			_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@mellanox.com>"
+			_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>"
 			_CC_LIST=${_CC_LIST/Doug Ledford <dledford@redhat.com>, /}
 			_CC_LIST=${_CC_LIST/, Doug Ledford <dledford@redhat.com>>/}
-			_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@mellanox.com>, /}
-			_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@mellanox.com>/}
+			_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@nvidia.com>, /}
+			_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@nvidia.com>/}
 		fi
 
 		if [[ $_TARGET == "iproute2-next" ]]; then
