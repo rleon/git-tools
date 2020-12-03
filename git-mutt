@@ -4,7 +4,6 @@ export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 PATCH=$(mktemp)
 cat - > $PATCH
-sed -i -e '/^Issue:[ 0-9]*/Id' -e '/^Change-id:[ 0-9]*/Id' $PATCH
 
 COUNT=$(grep PATCH $PATCH | grep Subject | grep -c rdma-core)
 echo $COUNT
@@ -21,5 +20,17 @@ fi
 
 echo "Applying to $HOME/src/$PRJ"
 cd $HOME/src/$PRJ
-git am -s --reject $PATCH
+
+GERRIT=$(grep -c "Gerrit-Project:" $PATCH)
+if [ $GERRIT -ge 1 ]; then
+	ISSUE=$(grep "Gerrit-Change-Number:" $PATCH | head -1 | cut -d' ' -f2)
+	GPROJECT=$(grep "Gerrit-Project:" $PATCH | head -1 | cut -d' ' -f2)
+	PATCHSET=$(grep "Gerrit-PatchSet:" $PATCH | head -1 | cut -d' ' -f2)
+	LINK="ssh://l-gerrit.mtl.labs.mlnx:29418/$GPROJECT refs/changes/${ISSUE: -2}/$ISSUE/$PATCHSET"
+	git fetch $LINK && git cherry-pick FETCH_HEAD && git cl
+else
+	sed -i -e '/^Issue:[ 0-9]*/Id' -e '/^Change-id:[ 0-9]*/Id' $PATCH
+	git am -s --reject $PATCH
+fi
+
 rm -f $PATCH

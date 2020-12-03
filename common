@@ -85,7 +85,7 @@ function checkpatch() {
                 #perl $_GIT_ROOT/scripts/checkpatch.pl $_IN_TREE -q $_filea
                 set +e
                 # Warnings returns error too
-                $_GIT_ROOT/scripts/checkpatch.pl --root=$_GIT_ROOT --color=always --summary-file $_file |\
+                $_GIT_ROOT/scripts/checkpatch.pl --max-line-length=80 --root=$_GIT_ROOT --color=always --summary-file $_file |\
                         sed '/NOTE: For some of the reported/,+10 d' |\
                         sed '/has no obvious style problems and is ready for submission/,+1 d' |\
                         head -n -1
