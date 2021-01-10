@@ -6,7 +6,6 @@ PATCH=$(mktemp)
 cat - > $PATCH
 
 COUNT=$(grep PATCH $PATCH | grep Subject | grep -c rdma-core)
-echo $COUNT
 if [ $COUNT -eq 1 ]; then
 	PRJ="rdma-core"
 else
