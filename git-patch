@@ -4,6 +4,8 @@ set -euo pipefail
 export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 . $DIR/common
 
+CUSTOM_LIST=0
+LIST_FILE=""
 OUTPUT_DIR_ASKED=0
 PATCHES_DIR=""
 for i in $*; do
@@ -12,6 +14,15 @@ for i in $*; do
 	fi
 	if [ "$i" == "-o" ]; then
 	    OUTPUT_DIR_ASKED=1
+	fi
+
+	if [[ r"$LIST_FILE" == r""  && $CUSTOM_LIST == 1 ]]; then
+		shift
+		LIST_FILE=$i
+	fi
+	if [ "$i" == "--mails" ]; then
+		shift
+		CUSTOM_LIST=1
 	fi
 done
 
@@ -36,10 +47,6 @@ function process_patches() {
 	local _PDIR=$1
 	local _PROJECT=$2
 	local _TARGET=$3
-
-	#if [ "$_PROJECT" != "kernel" ]; then
-	#	return
-	#fi
 
 	local _FOUND=0
 	local _GLOBAL_LIST=""
@@ -66,59 +73,64 @@ function process_patches() {
 		local _TO_LIST=""
 		local _CC_LIST=""
 
-		if [ "$_PROJECT" == "kernel" ]; then
-			_CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
+		if [ $CUSTOM_LIST == 0 ]; then
+			if [ "$_PROJECT" == "kernel" ]; then
+				_CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
+			fi
+			if [ "$_PROJECT" == "iproute" ]; then
+				_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
+			fi
+
+			if [ $_COVER_LETTER -eq 0 ]; then
+				_CC_LIST+=$(grep "\-by\:" $_file | awk -F": " '{print ", "$2}' | grep -v syzbot | tr -d '\n')
+			fi
+
+			# get_maintainer.pl returns open-source email, but we use company mail
+			_CC_LIST=${_CC_LIST/jgg@ziepe.ca/jgg@nvidia.com}
+
+			# Delete duplicates
+			_CC_LIST=$(echo $_CC_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
+				sort -u | paste -sd "," - | sed -e 's/,/, /g')
+
+			# I don't need to be in CC
+			_CC_LIST=${_CC_LIST/Leon Romanovsky <leon@kernel.org>, /}
+			_CC_LIST=${_CC_LIST/, Leon Romanovsky <leon@kernel.org>/}
+			_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@nvidia.com>, /}
+			_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@nvidia.com>/}
+
+			# Delete dead emails
+			_CC_LIST=${_CC_LIST/Matan Barak <matanb@nvidia.com>, /}
+			_CC_LIST=${_CC_LIST/, Matan Barak <matanb@nvidia.com>/}
+			_CC_LIST=${_CC_LIST/Noa Osherovich <noaos@nvidia.com>, /}
+			_CC_LIST=${_CC_LIST/, Noa Osherovich <noaos@nvidia.com>/}
+
+			if [[ $_TARGET == "net-next" || $_TARGET == "net" ]]; then
+				_TO_LIST="David S. Miller <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>"
+				_CC_LIST=${_CC_LIST/\"David S. Miller\" <davem@davemloft.net>, /}
+				_CC_LIST=${_CC_LIST/, \"David S. Miller\" <davem@davemloft.net>/}
+				_CC_LIST=${_CC_LIST/Jakub Kicinski <kuba@kernel.org>, /}
+				_CC_LIST=${_CC_LIST/, Jakub Kicinski <kuba@kernel.org>/}
+			fi
+			if [[ $_TARGET == "rdma-next" || $_TARGET == "rdma-rc" ]]; then
+				_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>"
+				_CC_LIST=${_CC_LIST/Doug Ledford <dledford@redhat.com>, /}
+				_CC_LIST=${_CC_LIST/, Doug Ledford <dledford@redhat.com>>/}
+				_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@nvidia.com>, /}
+				_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@nvidia.com>/}
+			fi
+
+			if [[ $_TARGET == "iproute2-next" ]]; then
+				_TO_LIST="David Ahern <dsahern@gmail.com>"
+			fi
+
+			if [ r"$_GLOBAL_LIST" != r"" ]; then
+				_GLOBAL_LIST+=", "
+			fi
+			_GLOBAL_LIST+=$_CC_LIST
+		else
+			_TO_LIST=$(head -1 $LIST_FILE)
+			_CC_LIST=$(tail -1 $LIST_FILE)
 		fi
-		if [ "$_PROJECT" == "iproute" ]; then
-			_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
-		fi
-
-		if [ $_COVER_LETTER -eq 0 ]; then
-			_CC_LIST+=$(grep "\-by\:" $_file | awk -F": " '{print ", "$2}' | grep -v syzbot | tr -d '\n')
-		fi
-
-		# get_maintainer.pl returns open-source email, but we use company mail
-		_CC_LIST=${_CC_LIST/jgg@ziepe.ca/jgg@nvidia.com}
-
-		# Delete duplicates
-		_CC_LIST=$(echo $_CC_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
-			sort -u | paste -sd "," - | sed -e 's/,/, /g')
-
-		# I don't need to be in CC
-		_CC_LIST=${_CC_LIST/Leon Romanovsky <leon@kernel.org>, /}
-		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leon@kernel.org>/}
-		_CC_LIST=${_CC_LIST/Leon Romanovsky <leonro@nvidia.com>, /}
-		_CC_LIST=${_CC_LIST/, Leon Romanovsky <leonro@nvidia.com>/}
-
-		# Delete dead emails
-		_CC_LIST=${_CC_LIST/Matan Barak <matanb@nvidia.com>, /}
-		_CC_LIST=${_CC_LIST/, Matan Barak <matanb@nvidia.com>/}
-		_CC_LIST=${_CC_LIST/Noa Osherovich <noaos@nvidia.com>, /}
-		_CC_LIST=${_CC_LIST/, Noa Osherovich <noaos@nvidia.com>/}
-
-		if [[ $_TARGET == "net-next" || $_TARGET == "net" ]]; then
-			_TO_LIST="David S. Miller <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>"
-			_CC_LIST=${_CC_LIST/\"David S. Miller\" <davem@davemloft.net>, /}
-			_CC_LIST=${_CC_LIST/, \"David S. Miller\" <davem@davemloft.net>/}
-			_CC_LIST=${_CC_LIST/Jakub Kicinski <kuba@kernel.org>, /}
-			_CC_LIST=${_CC_LIST/, Jakub Kicinski <kuba@kernel.org>/}
-		fi
-		if [[ $_TARGET == "rdma-next" || $_TARGET == "rdma-rc" ]]; then
-			_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>"
-			_CC_LIST=${_CC_LIST/Doug Ledford <dledford@redhat.com>, /}
-			_CC_LIST=${_CC_LIST/, Doug Ledford <dledford@redhat.com>>/}
-			_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@nvidia.com>, /}
-			_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@nvidia.com>/}
-		fi
-
-		if [[ $_TARGET == "iproute2-next" ]]; then
-			_TO_LIST="David Ahern <dsahern@gmail.com>"
-		fi
-
-		if [ r"$_GLOBAL_LIST" != r"" ]; then
-			_GLOBAL_LIST+=", "
-		fi
-		_GLOBAL_LIST+=$_CC_LIST
 
 		sed -i -e "/^Date: .*/i To: $_TO_LIST" $_file
 
@@ -152,11 +164,18 @@ function process_patches() {
 	done
 
 	if [[ r"$_COVER_LETTER_NAME" != r"" ]]; then
-		# Delete duplicates
-		_GLOBAL_LIST=$(echo $_GLOBAL_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
-			sort -u | paste -sd "," - | sed -e 's/,/, /g')
+		local _CC_LIST=""
 
-		sed -i -e "/^Date: .*/i Cc: $_GLOBAL_LIST" $_COVER_LETTER_NAME
+		if [ $CUSTOM_LIST == 0 ]; then
+			# Delete duplicates
+			_GLOBAL_LIST=$(echo $_GLOBAL_LIST | tr ',' '\n' | awk '{$1=$1};1' |\
+				sort -u | paste -sd "," - | sed -e 's/,/, /g')
+			sed -i -e "/^Date: .*/i Cc: $_GLOBAL_LIST" $_COVER_LETTER_NAME
+		else
+			_CC_LIST=$(tail -1 $LIST_FILE)
+			sed -i -e "/^Date: .*/i Cc: $_CC_LIST" $_COVER_LETTER_NAME
+		fi
+
 
 		if [ $_FOUND -eq 1 ]; then
 			sed -i -e 's/linux-kernel@vger.kernel.org, //g' $_COVER_LETTER_NAME
