@@ -54,9 +54,13 @@ function get_target() {
 
 	if [ "$_PROJECT" == "iproute" ]; then
 		_TARGET=$(git symbolic-ref --short HEAD)
-		if [ "$_TARGET" != "iproute2-next" ] && [ "$_TARGET" != "iproute2-rc" ]; then
+		if [ "$_TARGET" != "iproute2-next" ]; then
 			# Let's put default for now
 			_TARGET="iproute2-next"
+		fi
+		if [ "$_TARGET" != "iproute2-rc" ]; then
+			# Let's put default for now
+			_TARGET="iproute2"
 		fi
 	fi
 
