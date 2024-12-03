@@ -78,7 +78,7 @@ function process_patches() {
 				_CC_LIST=$($GET_CC_LIST $_LIST_PATCHES)
 			fi
 			if [ "$_PROJECT" == "iproute" ]; then
-				_CC_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
+				_CC_LIST="Jason Gunthorpe <jgg@nvidia.com>, RDMA mailing list <linux-rdma@vger.kernel.org>, linux-netdev <netdev@vger.kernel.org>"
 			fi
 
 			if [ $_COVER_LETTER -eq 0 ]; then
@@ -112,9 +112,7 @@ function process_patches() {
 				_CC_LIST=${_CC_LIST/, Jakub Kicinski <kuba@kernel.org>/}
 			fi
 			if [[ $_TARGET == "rdma-next" || $_TARGET == "rdma-rc" ]]; then
-				_TO_LIST="Doug Ledford <dledford@redhat.com>, Jason Gunthorpe <jgg@nvidia.com>"
-				_CC_LIST=${_CC_LIST/Doug Ledford <dledford@redhat.com>, /}
-				_CC_LIST=${_CC_LIST/, Doug Ledford <dledford@redhat.com>>/}
+				_TO_LIST="Jason Gunthorpe <jgg@nvidia.com>"
 				_CC_LIST=${_CC_LIST/Jason Gunthorpe <jgg@nvidia.com>, /}
 				_CC_LIST=${_CC_LIST/, Jason Gunthorpe <jgg@nvidia.com>/}
 			fi
@@ -185,5 +183,7 @@ function process_patches() {
 }
 
 process_patches $PATCHES_DIR $PROJECT $TARGET
+PATCHES_DIR="${PATCHES_DIR/home/mnt}"
+PATCHES_DIR="${PATCHES_DIR/leonro/dev}"
 echo "---------------------------------------------------------------------"
 echo "git send-upstream $PATCHES_DIR/*"
